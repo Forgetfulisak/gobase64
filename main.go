@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"flag"
-	"fmt"
 	"io"
 	"log"
 	"math"
@@ -126,26 +125,29 @@ func decodeString(data string) string {
 }
 
 func main() {
+	var input io.Reader
+	var err error
 
 	decode := flag.Bool("d", false, "Decode base64-file")
 	flag.Parse()
 	files := flag.Args()
 
 	if len(files) != 1 {
-		fmt.Println("Usage: gobase64 <file>")
-		os.Exit(1)
-	}
+		input = os.Stdin
+	} else {
 
-	file, err := os.Open(files[0])
-	if err != nil {
-		log.Fatalln(err)
+		file, err := os.Open(files[0])
+		if err != nil {
+			log.Fatalln(err)
+		}
+		defer file.Close()
+		input = file
 	}
-	defer file.Close()
 
 	if *decode {
-		err = decodeData(file, os.Stdout)
+		err = decodeData(input, os.Stdout)
 	} else {
-		err = encodeData(file, os.Stdout)
+		err = encodeData(input, os.Stdout)
 	}
 	if err != nil {
 		log.Fatalln(err)
