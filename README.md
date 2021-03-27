@@ -13,3 +13,5 @@ Decode:
 ```
 $ gobase64 -d <file>
 ```
+
+If no file is provided, it will read from stdin.
