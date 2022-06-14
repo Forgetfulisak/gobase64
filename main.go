@@ -20,43 +20,44 @@ func decodeChunk(byteChunk []byte, n int) ([]byte, error) {
 		return nil, errors.New("string is not multiple of 4")
 	}
 
-	data := string(byteChunk)
+	data := byteChunk
 
-	var tmp [4]byte
-	var out []byte
+	var uintBuf [4]byte
 	var x uint32
 	padIdx := len(data)
 	for i, letter := range data {
-		if padIdx == len(data) && string(letter) == Pad {
+		if padIdx == len(data) && letter == Pad {
 			padIdx = i
 
 		}
-		x = x | Decoding64[string(letter)]<<(6*(3-i))
+		x = x | Decoding64[letter]<<(6*(3-i))
 	}
-	binary.BigEndian.PutUint32(tmp[:], x)
-	out = tmp[1:padIdx]
+	binary.BigEndian.PutUint32(uintBuf[:], x)
+	out := uintBuf[1:padIdx]
 
 	return out, nil
 }
 
-func encodeChunk(byteChunk []byte, n int) string {
-	if len(byteChunk) < n || n > 3 {
-		log.Fatalln("Len(byteChunk) < ", n, "|| n > 3")
+func encodeChunk(byteChunk []byte) []byte {
+	if len(byteChunk) > 3 {
+		panic("len(byteChunk) must be > 3")
 	}
 
-	var out string
-	var tmp [4]byte
-	copy(tmp[1:], byteChunk)
+	n := len(byteChunk)
+	out := make([]byte, 0, 4)
 
-	chunk := binary.BigEndian.Uint32(tmp[:])
+	var uintBuf [4]byte
+	copy(uintBuf[1:], byteChunk)
+
+	chunk := binary.BigEndian.Uint32(uintBuf[:])
 	numChars := int(math.Ceil((float64(n) * 8.0) / 6.0))
 	for i := 0; i < numChars; i++ {
 		x := (chunk >> (6 * (3 - i))) & (0x40 - 1)
-		out += Encoding64[int(x)]
+		out = append(out, Encoding64[int(x)])
 	}
 
 	for i := len(out); i <= 3; i++ {
-		out += Pad
+		out = append(out, Pad)
 	}
 
 	return out
@@ -77,8 +78,10 @@ func decodeData(in io.Reader, out io.Writer) error {
 		if err != nil {
 			return err
 		}
-
-		io.Copy(out, bytes.NewReader(chunk))
+		_, err = out.Write(chunk)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -95,8 +98,11 @@ func encodeData(in io.Reader, out io.Writer) error {
 			return err
 		}
 
-		chunk := encodeChunk(buff, n)
-		io.Copy(out, strings.NewReader(chunk))
+		chunk := encodeChunk(buff[:n])
+		_, err = out.Write(chunk)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
